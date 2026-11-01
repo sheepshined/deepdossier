@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check src tests
+      - name: Test
+        run: pytest -q
+        env:
+          DOSSIER_RETRIEVER: stub
+          DOSSIER_LLM_PROVIDER: stub
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t deepdossier-ci .
+      - name: Boot and verify web UI ships in image
+        run: |
+          docker run -d --rm --name dd-ci -p 8000:8000 \
+            -e DOSSIER_LLM_PROVIDER=stub -e DOSSIER_RETRIEVER=stub \
+            deepdossier-ci
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/healthz >/dev/null; then break; fi
+            sleep 1
+          done
+          # 首页必须是打包进去的 HTML（此前 pip 安装布局下会退化为 JSON —— 回归）
+          curl -sf http://127.0.0.1:8000/ | grep -q "DeepDossier" || {
+            echo "web UI missing in image"; docker logs dd-ci; exit 1; }
+          curl -sf http://127.0.0.1:8000/healthz | grep -q '"ok"'
+          docker stop dd-ci
+  bare-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: "Bare install in clean venv (R38: 防 R10 类依赖问题复发)"
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install .
+      - name: Keyless offline demo smoke
+        run: .venv/bin/deepdossier demo
+        env:
+          DOSSIER_DATA_DIR: /tmp/dd-bare-data

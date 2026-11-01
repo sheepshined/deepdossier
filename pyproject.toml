@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepdossier"
+version = "0.4.0"
+description = "DeepDossier - 深度调研智能体：多 Agent 协同的深度研究系统（Planner → 并行 Researcher → Critic 批判循环 → Writer 带引用报告）"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "DeepDossier Team" }]
+keywords = ["multi-agent", "deep-research", "langgraph", "llm"]
+dependencies = [
+    "langgraph>=0.2.60",
+    "langgraph-checkpoint-sqlite>=2.0.0",
+    "openai>=1.40.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "httpx>=0.27",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+    "typer>=0.12",
+    "rich>=13.7",
+    "uvicorn>=0.30",
+    "fastapi>=0.110",
+    "python-docx>=1.1",
+    "mcp>=1.0",
+    "ddgs>=9.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+deepdossier = "deepdossier.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+deepdossier = ["web/*.html"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# E501 行长由格式化处理；B008 是 typer/FastAPI 参数默认值惯用法的误报
+ignore = ["E501", "B008"]

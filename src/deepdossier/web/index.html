@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeepDossier · 深度调研智能体</title>
+<style>
+  /* ================= M4 设计令牌（禁止偏离） ================= */
+  :root {
+    --primary: #2563EB; --primary-hover: #1D4ED8;
+    --success: #16A34A; --danger: #DC2626; --warning: #D97706;
+    --text: #1F2937; --text-2: #6B7280; --border: #E5E7EB;
+    --bg: #F9FAFB; --panel: #FFFFFF;
+    --radius-sm: 6px; --radius-lg: 12px;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-float: 0 8px 24px rgba(0,0,0,0.12);
+    --font: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); font-family: var(--font);
+    font-size: 14px; line-height: 1.6;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header {
+    position: sticky; top: 0; z-index: 30; background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .head-in { max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 56px;
+    display: flex; align-items: center; gap: 24px; }
+  .logo { font-weight: bold; font-size: 18px; color: var(--text); text-decoration: none; }
+  .logo em { font-style: normal; color: var(--primary); }
+  nav { display: none; gap: 4px; margin-left: auto; }
+  nav a {
+    color: var(--text-2); text-decoration: none; font-size: 14px; padding: 8px 12px;
+    border-radius: var(--radius-sm); transition: all .15s ease;
+  }
+  nav a:hover { color: var(--primary); background: var(--bg); }
+  nav a.active { color: var(--primary); font-weight: bold; }
+  .head-ver { display: none; color: var(--text-2); font-size: 12px; }
+  .nav-toggle { display: inline-flex; margin-left: auto; background: none; border: none; padding: 8px; cursor: pointer; }
+  .nav-toggle svg { width: 20px; height: 20px; stroke: var(--text); }
+  main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 32px 24px 48px; }
+  section { margin-bottom: 32px; scroll-margin-top: 72px; }
+  footer {
+    background: var(--panel); border-top: 1px solid var(--border);
+    color: var(--text-2); font-size: 12px; padding: 20px 24px;
+  }
+  .foot-in { max-width: 1200px; margin: 0 auto; display: flex; gap: 16px; flex-wrap: wrap; }
+  footer a { color: var(--text-2); }
+  footer a:hover { color: var(--primary); }
+
+  h1 { font-size: 24px; font-weight: bold; line-height: 1.3; margin: 0 0 8px; }
+  .sub { color: var(--text-2); font-size: 14px; margin: 0 0 24px; }
+  h2 { font-size: 18px; font-weight: bold; line-height: 1.3; margin: 0 0 16px; }
+  h2 .sec-hint { font-size: 12px; font-weight: normal; color: var(--text-2); margin-left: 8px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 20px; font-size: 14px; font-family: var(--font);
+    border-radius: var(--radius-sm); border: 1px solid transparent;
+    cursor: pointer; transition: all .15s ease; text-decoration: none; line-height: 1.4;
+  }
+  .btn-primary { background: var(--primary); color: #fff; font-weight: bold; }
+  .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: var(--shadow-card); }
+  .btn-primary:active { transform: translateY(0); background: var(--primary-hover); }
+  .btn-secondary { background: var(--panel); color: var(--primary); border-color: var(--border); }
+  .btn-secondary:hover { border-color: var(--primary); background: var(--bg); }
+  .btn-secondary:active { background: var(--bg); }
+  .btn-danger { background: var(--danger); color: #fff; font-weight: bold; }
+  .btn-danger:hover { filter: brightness(.92); }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--primary); outline-offset: 2px;
+  }
+  .btn .spin { display: none; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
+  .btn.loading .spin { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 14px; margin-bottom: 8px; }
+  .field .req { color: var(--danger); margin-left: 4px; }
+  .field input[type=text], .field select {
+    width: 100%; height: 40px; padding: 0 12px; font-size: 16px; font-family: var(--font);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); color: var(--text);
+  }
+  .field input:focus, .field select:focus { border-color: var(--primary); outline: none; }
+  .field .err-msg { display: none; color: var(--danger); font-size: 12px; margin-top: 4px; }
+  .field.invalid input { border-color: var(--danger); }
+  .field.invalid .err-msg { display: block; }
+  .form-row { display: flex; gap: 16px; align-items: flex-start; }
+  .form-row .field { flex: 1; margin-bottom: 0; }
+  .form-row .field-sm { flex: 0 0 180px; }
+  .form-row .btn { margin-top: 26px; }
+  .examples { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .examples .lbl { color: var(--text-2); font-size: 12px; }
+  .ex-chip {
+    font-size: 13px; color: var(--text-2); border: 1px solid var(--border); border-radius: 999px;
+    padding: 4px 12px; cursor: pointer; background: var(--panel); transition: all .15s ease; font-family: var(--font);
+  }
+  .ex-chip:hover { color: var(--primary); border-color: var(--primary); }
+
+  .card { background: var(--panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 20px; }
+  .card-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  .cap-card h3 { font-size: 14px; font-weight: bold; margin: 8px 0 4px; }
+  .cap-card p { margin: 0; color: var(--text-2); font-size: 13px; }
+  .cap-card svg { width: 20px; height: 20px; stroke: var(--primary); }
+
+  .list { background: var(--panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); overflow: hidden; }
+  .list-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px 20px; min-height: 48px;
+    border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s ease;
+  }
+  .list-item:last-child { border-bottom: none; }
+  .list-item:hover { background: var(--bg); }
+  .list-item .q { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .list-item .time { color: var(--text-2); font-size: 12px; flex-shrink: 0; }
+  .item-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .item-actions button {
+    padding: 4px 10px; font-size: 12px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--panel); color: var(--text-2); cursor: pointer;
+    transition: all .15s ease; font-family: var(--font);
+  }
+  .item-actions button:hover { color: var(--primary); border-color: var(--primary); }
+  .tag { display: inline-block; padding: 2px 10px; font-size: 12px; flex-shrink: 0;
+    border: 1px solid var(--border); color: var(--text-2); border-radius: 999px; }
+  .tag.ok { color: var(--success); border-color: var(--success); background: rgba(22,163,74,.06); }
+  .tag.fail { color: var(--danger); border-color: var(--danger); background: rgba(220,38,38,.06); }
+  .tag.run { color: var(--warning); border-color: var(--warning); background: rgba(217,119,6,.06); }
+  .tag.direct { color: var(--primary); border-color: var(--primary); background: rgba(37,99,235,.06); }
+
+  .skeleton { background: linear-gradient(90deg, #F3F4F6 25%, #E5E7EB 50%, #F3F4F6 75%);
+    background-size: 200% 100%; animation: breathe 1.2s infinite; border-radius: var(--radius-sm); }
+  @keyframes breathe { to { background-position: -200% 0; } }
+  .sk-list-item { height: 48px; margin: 8px 20px; }
+
+  .empty { text-align: center; padding: 48px 20px; color: var(--text-2); }
+  .empty svg { width: 48px; height: 48px; stroke: var(--border); }
+  .empty p { margin: 12px 0 16px; font-size: 14px; }
+
+  .error-page { text-align: center; padding: 32px 20px; }
+  .error-page p { color: var(--danger); font-size: 14px; margin: 8px 0 16px; }
+
+  .tl-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tl-head h2 { margin: 0; }
+  .tl-status { color: var(--text-2); font-size: 13px; }
+  .filters { display: flex; gap: 8px; }
+  .f-chip { font-size: 13px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border);
+    color: var(--text-2); cursor: pointer; background: var(--panel); transition: all .15s ease; font-family: var(--font); }
+  .f-chip:hover { color: var(--primary); }
+  .f-chip.on { color: var(--primary); border-color: var(--primary); background: rgba(37,99,235,.06); }
+  .tl-progress { height: 4px; background: var(--border); border-radius: 999px; overflow: hidden; margin-bottom: 16px; }
+  #tlBar { height: 100%; width: 0; background: var(--primary); transition: width .4s ease; }
+  .tl-card { background: var(--panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 16px 20px; }
+  .ev { border-left: 2px solid var(--border); padding: 6px 0 6px 16px; margin-left: 6px;
+    position: relative; font-size: 13px; line-height: 1.6; }
+  .ev::before { content: ""; position: absolute; left: -5px; top: 12px; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--primary); }
+  .ev.ev-err::before { background: var(--danger); }
+  .ev.ev-llm { opacity: .6; font-size: 12px; }
+  .ev .tag { font-size: 12px; }
+  .ev .meta { color: var(--text-2); font-size: 12px; margin: 0 8px; }
+  #events.hide-llm .ev.ev-llm { display: none; }
+  #events[data-filter="key"] .ev:not([data-key="1"]) { display: none; }
+  #events[data-filter="err"] .ev:not([data-err="1"]) { display: none; }
+  .err-text { color: var(--danger); }
+
+  #reportSection { display: none; }
+  .r-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .r-title { flex: 1 1 260px; color: var(--text-2); font-size: 13px; }
+  .stat-strip { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 16px; }
+  .stat { background: var(--panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 12px 20px; }
+  .stat .num { font-size: 28px; font-weight: bold; line-height: 1.3; }
+  .stat .num small { font-size: 13px; font-weight: normal; color: var(--text-2); }
+  .stat .lbl { color: var(--text-2); font-size: 12px; }
+  .stat-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; margin-right: 8px; }
+  .badge-warn { color: var(--warning); border: 1px solid var(--warning); background: rgba(217,119,6,.06); }
+  .badge-info { color: var(--primary); border: 1px solid var(--primary); background: rgba(37,99,235,.06); }
+  #toc { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  #toc a { font-size: 13px; color: var(--primary); text-decoration: none; border: 1px solid var(--border);
+    padding: 4px 12px; border-radius: 999px; background: var(--panel); }
+  #toc a:hover { border-color: var(--primary); }
+  #report { background: var(--panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+    padding: 24px; line-height: 1.6; font-size: 14px; }
+  #report h1 { font-size: 20px; margin-top: 0; }
+  #report h2 { font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-top: 24px; scroll-margin-top: 72px; }
+  #report h3 { font-size: 14px; margin-top: 20px; }
+  #report a { color: var(--primary); }
+  #report sup a { color: var(--warning); text-decoration: none; cursor: help; }
+  #report blockquote { margin: 12px 0; padding: 8px 16px; border-left: 3px solid var(--border);
+    background: var(--bg); color: var(--text-2); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+  #report code { background: #F3F4F6; border-radius: 4px; padding: 1px 5px; font-size: 13px; font-family: monospace; }
+  #report pre { background: #F3F4F6; border-radius: var(--radius-sm); padding: 12px 14px; overflow-x: auto; }
+  #report pre code { background: none; padding: 0; }
+  #report table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+  #report th, #report td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+  #report th { background: var(--bg); }
+  #report hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+  #sources { background: var(--panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+    padding: 16px 24px; margin-top: 16px; font-size: 13px; line-height: 1.8; display: none; }
+  #sources h2 { margin: 0 0 8px; }
+  #sources ol { margin: 0; padding-left: 20px; }
+  #sources .u { color: var(--text-2); font-size: 12px; word-break: break-all; }
+  #sources li { scroll-margin-top: 72px; }
+  #compareSection { display: none; }
+  .cmp-panel { background: var(--panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+    padding: 20px 24px; line-height: 1.6; font-size: 14px; }
+  .cmp-panel h2 { font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-top: 20px; }
+  .cmp-panel a { color: var(--primary); }
+  .cmp-panel sup a { color: var(--warning); }
+
+  .modal-mask { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; }
+  .modal-mask.open { display: block; }
+  .modal {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 480px; max-width: 92vw; max-height: 80vh; overflow: auto;
+    background: var(--panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-float); padding: 24px;
+  }
+  .modal-head { display: flex; align-items: center; margin-bottom: 16px; }
+  .modal-head h3 { margin: 0; font-size: 18px; flex: 1; }
+  .modal-close { background: none; border: none; cursor: pointer; padding: 4px; line-height: 0; }
+  .modal-close svg { width: 16px; height: 16px; stroke: var(--text-2); }
+  .modal-close:hover svg { stroke: var(--text); }
+  .modal-foot { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+  .modal-foot .btn { flex: 1; }
+  .cmp-item { display: flex; align-items: center; gap: 12px; padding: 12px; min-height: 48px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px;
+    cursor: pointer; transition: all .15s ease; }
+  .cmp-item:hover { border-color: var(--primary); }
+  .cmp-item .q { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+
+  #toasts { position: fixed; top: 68px; right: 24px; z-index: 60; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--panel); border-radius: var(--radius-sm); box-shadow: var(--shadow-float);
+    padding: 10px 16px; font-size: 13px; max-width: 360px; display: flex; gap: 8px; align-items: flex-start;
+    border-left: 3px solid var(--primary); animation: slideIn .2s ease; }
+  .toast.warn { border-left-color: var(--warning); }
+  .toast.err { border-left-color: var(--danger); }
+  .toast.ok { border-left-color: var(--success); }
+  .toast button { background: none; border: none; cursor: pointer; color: var(--text-2); font-size: 14px; padding: 0 2px; }
+  @keyframes slideIn { from { transform: translateX(16px); opacity: 0; } }
+
+  @media (min-width: 768px) {
+    nav { display: flex; }
+    .nav-toggle { display: none; }
+    .head-ver { display: inline; }
+    .form-row { flex-direction: row; align-items: flex-end; }
+    .form-row .btn { margin-top: 0; }
+    .card-grid { grid-template-columns: repeat(3, 1fr); }
+    .item-actions { display: none; }
+    .list-item:hover .item-actions { display: flex; }
+    .field input[type=text], .field select { font-size: 14px; }
+    .modal-foot .btn { flex: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-in">
+    <a class="logo" href="#new" data-action="nav" data-target="new">Deep<em>Dossier</em></a>
+    <button type="button" class="nav-toggle" aria-label="打开导航菜单" data-action="nav-toggle">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <nav id="mainNav">
+      <a href="#new" class="active" data-action="nav" data-target="new">新建调研</a>
+      <a href="#progress" data-action="nav" data-target="progress">研究进度</a>
+      <a href="#reportSection" data-action="nav" data-target="reportSection">报告</a>
+      <a href="#history" data-action="nav" data-target="history">历史调研</a>
+      <a href="#about" data-action="nav" data-target="about">能力说明</a>
+      <a href="/docs" target="_blank" rel="noopener">API 文档</a>
+    </nav>
+    <span class="head-ver">v0.4.0</span>
+  </div>
+</header>
+
+<main>
+  <section id="new">
+    <h1>一个复杂问题，一份经得起检验的报告</h1>
+    <p class="sub">逐结论挂引用 · 来源矛盾显式呈现 · 草稿经事实审查 · 全程可回放、可断点恢复</p>
+
+    <div class="card">
+      <form id="researchForm" novalidate>
+        <div class="form-row">
+          <div class="field" id="qField">
+            <label for="q">调研问题<span class="req">*</span></label>
+            <input id="q" type="text" maxlength="2000" autocomplete="off"
+                   placeholder="输入复杂调研问题，如：多智能体系统在企业落地的路径与风险？">
+            <div class="err-msg" id="qError">请输入至少 1 个字符的调研问题</div>
+          </div>
+          <div class="field field-sm">
+            <label for="depth">研究深度</label>
+            <select id="depth">
+              <option value="1">快速（1 轮）</option>
+              <option value="2" selected>标准（2 轮）</option>
+              <option value="3">深度（3 轮）</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary" id="goBtn"><span class="spin"></span><span class="txt">开始调研</span></button>
+        </div>
+      </form>
+      <div class="examples">
+        <span class="lbl">试试：</span>
+        <button type="button" class="ex-chip" data-action="example" data-q="多智能体系统在企业的落地路径与风险？">多智能体落地路径</button>
+        <button type="button" class="ex-chip" data-action="example" data-q="企业级 RAG 与微调如何选型？">RAG 与微调选型</button>
+        <button type="button" class="ex-chip" data-action="example" data-q="固态电池何时能量产？主要厂商进展？">固态电池量产</button>
+        <button type="button" class="ex-chip" data-action="example" data-q="你是谁">你是谁（体验智能路由）</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="progress" style="display:none">
+    <div class="tl-head">
+      <h2>研究进度<span class="sec-hint" id="tlStatus"></span></h2>
+      <div class="filters">
+        <button type="button" class="f-chip on" data-action="filter" data-mode="all">全部</button>
+        <button type="button" class="f-chip" data-action="filter" data-mode="key">关键节点</button>
+        <button type="button" class="f-chip" data-action="filter" data-mode="err">仅异常</button>
+        <button type="button" class="f-chip" data-action="llm-toggle" id="llmToggle">LLM 明细：关</button>
+      </div>
+    </div>
+    <div class="tl-progress"><div id="tlBar"></div></div>
+    <div class="tl-card"><div id="events"></div></div>
+  </section>
+
+  <section id="reportSection">
+    <h2>调研报告<span class="sec-hint" id="rRun"></span></h2>
+    <div class="r-head">
+      <button type="button" class="btn btn-secondary btn-sm" data-action="copy-md">复制 Markdown</button>
+      <button type="button" class="btn btn-secondary btn-sm" data-action="compare-open">对比另一份报告</button>
+      <button type="button" class="btn btn-secondary btn-sm" data-action="export-html-cur">导出 HTML</button>
+      <button type="button" class="btn btn-secondary btn-sm" data-action="export-docx-cur">导出 DOCX</button>
+    </div>
+    <div class="stat-strip" id="statStrip"></div>
+    <div id="toc"></div>
+    <div id="report"></div>
+    <div id="sources" style="display:none">
+      <h2>参考来源</h2>
+      <ol id="srcList"></ol>
+    </div>
+    <div id="compareSection" style="display:none">
+      <h2>对比评审<span class="sec-hint" id="cmpMeta"></span></h2>
+      <div class="cmp-panel" id="cmpReport"></div>
+    </div>
+  </section>
+
+  <section id="history">
+    <h2>历史调研<span class="sec-hint">桌面端悬停条目可快捷导出；点击查看完整时间线与报告</span></h2>
+    <div class="list" id="hList"></div>
+  </section>
+
+  <section id="about">
+    <h2>能力说明</h2>
+    <div class="card-grid">
+      <article class="card cap-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+        <h3>智能路由</h3>
+        <p>闲聊与简单询问由快模型秒级直接回答，不消耗任何检索资源；复杂问题进入完整研究流水线。</p>
+      </article>
+      <article class="card cap-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <h3>双重质量门禁</h3>
+        <p>搜索结果先经轻量模型相关性过滤；报告草稿再经事实审查、引用覆盖率门禁与幻觉引用检测。</p>
+      </article>
+      <article class="card cap-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <h3>检索透明化</h3>
+        <p>每条来源标注贡献引擎，检索、过滤、提炼全程结构化事件，可完整回放。</p>
+      </article>
+      <article class="card cap-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+        <h3>断点续跑</h3>
+        <p>研究每一步自动落检查点，失败、超时、重启后可从断点恢复，也可放弃断点完整重跑。</p>
+      </article>
+      <article class="card cap-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M8 7h12M8 12h12M8 17h12M3 7h.01M3 12h.01M3 17h.01"/></svg>
+        <h3>报告对比</h3>
+        <p>任意两份报告做 LLM 对比评审：结论一致性、分歧点、来源覆盖差异，结果可缓存复用。</p>
+      </article>
+      <article class="card cap-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+        <h3>多格式导出</h3>
+        <p>Markdown、独立 HTML（打印即 PDF）、DOCX（引用可点击跳转）三种格式，同源一致。</p>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="foot-in">
+    <span>© 2026 DeepDossier 深度调研智能体</span>
+    <a href="/docs" target="_blank" rel="noopener">API 文档</a>
+    <a href="/healthz" target="_blank" rel="noopener">健康状态</a>
+    <span>版本 v0.4.0</span>
+  </div>
+</footer>
+
+<div class="modal-mask" id="cmpModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cmpModalTitle">
+    <div class="modal-head">
+      <h3 id="cmpModalTitle">选择要对比的报告</h3>
+      <button type="button" class="modal-close" aria-label="关闭弹窗" data-action="modal-close" data-modal="cmpModal">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div id="cmpList"></div>
+    <div class="modal-foot"><button type="button" class="btn btn-secondary" data-action="modal-close" data-modal="cmpModal">取消</button></div>
+  </div>
+</div>
+
+<div class="modal-mask" id="freshModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="freshModalTitle">
+    <div class="modal-head">
+      <h3 id="freshModalTitle">放弃断点重新跑？</h3>
+      <button type="button" class="modal-close" aria-label="关闭弹窗" data-action="modal-close" data-modal="freshModal">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <p style="margin:0;color:var(--text-2)">将丢弃该 run 已保存的断点进度与历史事件，并完整重做本次研究。此操作不可撤销；如需保留进度请改用「从断点续跑」。</p>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-secondary" data-action="modal-close" data-modal="freshModal">取消</button>
+      <button type="button" class="btn btn-danger" id="freshConfirmBtn">确认重新跑</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ================= 状态 ================= */
+const LABEL = {
+  node_start: "开始", node_end: "完成", tool_call: "搜索", curate: "过滤", evidence_added: "证据",
+  route: "路由", critique: "评审", llm_call: "调用", quality: "质量", draft_review: "审查",
+  fallback: "降级", final: "报告", error: "异常", done: "结束", degraded: "降级",
+  hallucination: "幻觉", slow_node: "慢调用"
+};
+const NODE_CN = { router: "Router 路由", direct_answer: "直接回答", planner: "Planner 规划",
+  researcher: "Researcher 检索", critic: "Critic 评审", verifier: "Verifier 审查",
+  writer: "Writer 撰写", runner: "Runner", provider: "LLM" };
+const EV_KIND = { llm_call: "llm", quality: "key", curate: "key", route: "key", fallback: "key",
+  draft_review: "key", degraded: "key", hallucination: "err", slow_node: "err", error: "err",
+  node_start: "node", node_end: "node", tool_call: "node", evidence_added: "node",
+  critique: "node", final: "node", done: "node" };
+
+let curRun = null;
+const seenSeqs = new Set();
+let lastCoverage = null;
+let freshPendingId = null;
+
+const $ = (id) => document.getElementById(id);
+
+/* ================= Toast（M3.5） ================= */
+function toast(msg, type, ms) {
+  const box = document.createElement("div");
+  box.className = "toast " + (type || "info");
+  const span = document.createElement("span");
+  span.textContent = msg;
+  const close = document.createElement("button");
+  close.setAttribute("aria-label", "关闭提示");
+  close.textContent = "×";
+  close.addEventListener("click", () => box.remove());
+  box.append(span, close);
+  $("toasts").appendChild(box);
+  setTimeout(() => box.remove(), ms || 4000);
+}
+
+/* ================= 弹窗（M2.5：Esc / 遮罩 / 禁背景滚动） ================= */
+function openModal(id) { $(id).classList.add("open"); document.body.style.overflow = "hidden"; }
+function closeModal(id) { $(id).classList.remove("open"); document.body.style.overflow = ""; }
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  ["cmpModal", "freshModal"].forEach((id) => { if ($(id).classList.contains("open")) closeModal(id); });
+});
+["cmpModal", "freshModal"].forEach((id) => {
+  $(id).addEventListener("click", (e) => { if (e.target === $(id)) closeModal(id); });
+});
+
+/* ================= 失败原因用户语言（R34） ================= */
+function friendlyError(msg) {
+  const rules = [
+    [/timed out|超时/i, "研究超时（超过单次时限）。可点击「从断点续跑」从最近进度恢复，无需重头再来。"],
+    [/预算耗尽|budget/i, "本次研究的 LLM 用量达到预算上限已自动停止。已收集的证据保留在下方，可调高预算后从断点续跑。"],
+    [/interrupted by server restart|服务重启/i, "服务重启导致研究中断。进度已保存，点击「从断点续跑」即可恢复。"],
+    [/checkpoint|断点/i, "断点数据读取失败。可点击「放弃断点重新跑」完整重做本次研究。"],
+    [/搜索|检索|search|engine/i, "检索服务暂时不可用（网络或引擎波动）。系统已尝试全部备用引擎；可稍后续跑或重试。"]
+  ];
+  for (const rule of rules) if (rule[0].test(msg || "")) return rule[1];
+  return "研究过程中出现错误。可尝试「从断点续跑」或「放弃断点重新跑」。";
+}
+
+/* ================= 新建调研（表单校验 + 加载态） ================= */
+$("researchForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = $("q").value.trim();
+  const field = $("qField");
+  if (!q) { field.classList.add("invalid"); $("q").focus(); return; }
+  field.classList.remove("invalid");
+
+  const btn = $("goBtn");
+  btn.classList.add("loading"); btn.disabled = true;
+  btn.querySelector(".txt").textContent = "提交中…";
+
+  fetch("/api/researches", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question: q, max_rounds: parseInt($("depth").value, 10) })
+  }).then(async (resp) => {
+    if (!resp.ok) {
+      const j = await resp.json().catch(() => ({}));
+      toast("创建任务失败 " + resp.status + "：" + (j.detail || "请稍后重试"), "err");
+      return;
+    }
+    const data = await resp.json();
+    if (data.queued) {
+      toast("当前并发已满，任务进入排队（" + (data.waiting || 1) + "/" + data.max_concurrent + "），将自动开始", "warn");
+    }
+    openStream(data.run_id);
+  }).catch(() => {
+    toast("无法连接服务，请确认后端已启动", "err");
+  }).finally(() => {
+    btn.classList.remove("loading"); btn.disabled = false;
+    btn.querySelector(".txt").textContent = "开始调研";
+  });
+});
+$("q").addEventListener("input", () => $("qField").classList.remove("invalid"));
+
+function fillExample(q) { $("q").value = q; $("qField").classList.remove("invalid"); $("q").focus(); }
+
+/* ================= SSE（断线自动重连 + 10s watchdog） ================= */
+function openStream(runId) {
+  curRun = runId;
+  location.hash = runId;
+  let lastSeq = 0, retries = 0, es = null, reportShown = false;
+  let lastEventAt = Date.now();
+  const startedAt = Date.now();
+  let llmCalls = 0;
+  resetRunView();
+
+  const progressTimer = setInterval(() => {
+    if (reportShown || retries > 3) { clearInterval(progressTimer); return; }
+    const sec = Math.round((Date.now() - startedAt) / 1000);
+    $("tlStatus").textContent = "实时 · 已耗时 " + sec + "s · LLM 调用 " + llmCalls + " 次";
+  }, 1000);
+  const watchdog = setInterval(() => {
+    if (reportShown || retries > 20) { clearInterval(watchdog); return; }
+    if (Date.now() - lastEventAt > 10000) {
+      toast("事件等待较久，已自动尝试重连", "warn", 3000);
+      lastEventAt = Date.now();
+      if (es) es.close();
+      connect();
+    }
+  }, 5000);
+
+  const connect = () => {
+    es = new EventSource("/api/researches/" + runId + "/events?after_seq=" + lastSeq);
+    es.onmessage = async (m) => {
+      const ev = JSON.parse(m.data);
+      if (ev.type === "stream_end") {
+        clearInterval(progressTimer); clearInterval(watchdog);
+        es.close();
+        if (!reportShown) reportShown = await showReport(runId);
+        setBusy(false); refreshHistory();
+        $("tlStatus").textContent = "已结束";
+        return;
+      }
+      lastEventAt = Date.now();
+      if (typeof ev.seq === "number") {
+        if (seenSeqs.has(ev.seq)) return;
+        seenSeqs.add(ev.seq);
+        lastSeq = Math.max(lastSeq, ev.seq);
+      }
+      if (ev.type === "llm_call") llmCalls += (ev.payload && ev.payload.calls) || 0;
+      addEvent(ev);
+      if (ev.type === "final" || ev.type === "done") reportShown = await showReport(runId, es);
+      if (ev.type === "error" && ev.node === "runner") {
+        clearInterval(progressTimer); clearInterval(watchdog);
+        es.close(); setBusy(false); refreshHistory();
+      }
+    };
+    es.onerror = () => {
+      es.close();
+      if (retries++ < 20) setTimeout(connect, Math.min(600 * retries, 4000));
+      else {
+        clearInterval(progressTimer); clearInterval(watchdog);
+        setBusy(false); refreshHistory();
+        $("tlStatus").textContent = "连接中断";
+        toast("事件流连接中断，请刷新页面查看最新进度", "err");
+      }
+    };
+  };
+  connect();
+}
+
+function setBusy(b) { $("goBtn").disabled = b; }
+
+function resetRunView() {
+  $("events").innerHTML = "";
+  $("tlBar").style.width = "0";
+  totalEstimate = 0; nodeEnds = 0;
+  seenSeqs.clear(); lastCoverage = null;
+  $("progress").style.display = "block";
+  $("reportSection").style.display = "none";
+  $("compareSection").style.display = "none";
+}
+
+/* ================= 时间线 ================= */
+function addEvent(ev) {
+  const el = document.createElement("div");
+  el.className = "ev" + (ev.type === "llm_call" ? " ev-llm" : "") + (ev.type === "error" ? " ev-err" : "");
+  const p = ev.payload || {};
+  let detail = "";
+  if (ev.type === "node_start") detail = p.detail || p.query || "";
+  if (ev.type === "route") detail = (p.route === "direct" ? "简单询问 → 直接回答" : "研究型问题 → 完整调研") + (p.reason ? "（" + p.reason + "）" : "");
+  if (ev.type === "tool_call") {
+    const eng = p.engines && Object.keys(p.engines).length
+      ? "；引擎 " + Object.entries(p.engines).map((kv) => kv[0] + ":" + kv[1]).join(" + ") : "";
+    detail = "「" + p.query + "」命中 " + p.results + " 条（" + p.tool + (p.cached ? "，缓存" : "") + eng + "）";
+  }
+  if (ev.type === "fallback") detail = "主引擎 " + p.expected + " 不可用，已降级 → " + (p.used || []).join(", ");
+  if (ev.type === "curate") detail = "来源过滤：" + p.before + " → " + p.after + " 条（「" + p.query + "」）";
+  if (ev.type === "evidence_added") detail = "子问题 " + p.question_id + " 产出 " + p.count + " 条证据" + (p.snippet_only ? "（仅基于搜索摘要）" : "") + (p.note ? "（" + p.note + "）" : "");
+  if (ev.type === "critique") detail = p.sufficient ? "证据充分" : "证据不足：" + (p.followup_queries || []).join("；");
+  if (ev.type === "llm_call") detail = (p.schema || "text") + (p.fast ? "（快模型）" : "") + " · " + (p.prompt_tokens ?? "—") + " 输入 / " + (p.completion_tokens ?? "—") + " 输出 tokens";
+  if (ev.type === "quality") { lastCoverage = p.citation_coverage; detail = "引用覆盖率 " + (p.citation_coverage * 100).toFixed(0) + "%（裸段落 " + p.bare_paragraphs + "）"; }
+  if (ev.type === "draft_review") detail = p.needs_revision ? "发现 " + p.issues.length + " 个问题，进入修订" : "草稿通过审查";
+  if (ev.type === "degraded") detail = "降级产出：" + (p.reason || p.kind);
+  if (ev.type === "hallucination") detail = "检测到疑似幻觉引用 " + p.count + " 条";
+  if (ev.type === "slow_node") detail = p.schema + " 调用耗时 " + p.elapsed_seconds + "s（阈值 " + p.threshold + "s）";
+  if (ev.type === "node_end" && p.subquestions) detail = p.subquestions.map((s) => s.question).join(" / ");
+  if (ev.type === "node_end" && p.revised !== undefined) detail = p.revised ? "草稿已修订" : (p.skipped ? "跳过审查" : "无需修订");
+  if (ev.type === "error") detail = p.message || "";
+  if (ev.type === "final") detail = p.title || "";
+
+  const tag = document.createElement("span");
+  tag.className = "tag"; tag.textContent = NODE_CN[ev.node] || ev.node || "";
+  const meta = document.createElement("span");
+  meta.className = "meta"; meta.textContent = (LABEL[ev.type] || ev.type) + " #" + (ev.seq ?? "");
+  const body = document.createElement("span");
+  body.className = "detail" + (ev.type === "error" ? " err-text" : "");
+  body.textContent = String(detail).slice(0, 200);
+  el.append(tag, meta, body);
+
+  const kind = EV_KIND[ev.type] || "node";
+  el.dataset.kind = kind;
+  if (kind === "node") el.dataset.key = "1";
+  if (kind === "err" || kind === "key") el.dataset.err = "1";
+  $("events").appendChild(el);
+  bumpProgress(ev);
+}
+
+function bumpProgress(ev) {
+  const p = ev.payload || {};
+  if (ev.type === "node_end" && p.subquestions) {
+    const rounds = parseInt($("depth").value, 10) || 2;
+    totalEstimate = 3 + p.subquestions.length + rounds + 1;
+  }
+  if (ev.type === "node_end") nodeEnds += 1;
+  if (totalEstimate > 0) {
+    $("tlBar").style.width = Math.min(95, Math.round(nodeEnds / totalEstimate * 100)) + "%";
+  }
+  if (ev.type === "done") $("tlBar").style.width = "100%";
+}
+
+/* ================= 报告 ================= */
+async function showReport(runId, es) {
+  const r = await fetch("/api/researches/" + runId);
+  if (!r.ok) return false;
+  const run = await r.json();
+  if (run.status !== "completed" && run.status !== "failed") return false;
+  if (es) es.close();
+  $("reportSection").style.display = "block";
+
+  if (run.status === "failed") {
+    $("rRun").textContent = "Run " + run.id + " · " + run.question;
+    $("statStrip").innerHTML = "";
+    $("toc").innerHTML = "";
+    const hasPartial = !!((run.report_md || "").trim());
+    let html = '<div class="err-text">' + escapeHtml(friendlyError(run.error)) + "</div>" +
+      '<details style="margin:8px 0"><summary style="color:var(--text-2);font-size:13px;cursor:pointer">技术详情</summary>' +
+      '<pre style="font-size:12px;color:var(--text-2);white-space:pre-wrap">' + escapeHtml(run.error || "") + "</pre></details>" +
+      '<p style="margin-top:16px">' +
+      '<button type="button" class="btn btn-primary btn-sm" data-action="resume" data-id="' + run.id + '">从断点续跑</button> ' +
+      '<button type="button" class="btn btn-secondary btn-sm" data-action="resume-fresh" data-id="' + run.id + '">放弃断点重新跑</button></p>';
+    if (hasPartial) html += '<h2 style="font-size:16px">部分成果（中断前已收集）</h2><div id="partialReport"></div>';
+    $("report").innerHTML = html;
+    if (hasPartial) $("partialReport").innerHTML = mdRender(run.report_md);
+    $("sources").style.display = "none";
+    setBusy(false);
+    return true;
+  }
+
+  $("rRun").textContent = "Run " + run.id + " · " + run.question;
+  const dur = run.finished_at ? fmtDur(run.finished_at - run.created_at) : "—";
+  const u = run.usage || {};
+  const md = run.report_md || "";
+  let badges = "";
+  if (md.indexOf("未联网核实") !== -1) badges += '<span class="stat-badge badge-warn">未联网核实</span>';
+  if (md.indexOf("引用不充分") !== -1) badges += '<span class="stat-badge badge-warn">引用不充分</span>';
+  if (run.params && run.params.kind === "direct") badges += '<span class="stat-badge badge-info">直答 · 未联网检索</span>';
+
+  const cov = lastCoverage;
+  let strip = badges +
+    statBlock((run.sources || []).length, "个唯一来源") +
+    (cov === null ? "" : statBlock((cov * 100).toFixed(0) + "%", "引用覆盖率" + (cov < 0.8 ? "（不达标）" : ""))) +
+    statBlock(u.calls ?? "—", "LLM 调用") +
+    statBlock((u.prompt_tokens ?? "—") + "<small>/</small>" + (u.completion_tokens ?? "—"), "输入/输出 tokens") +
+    statBlock(dur, "总耗时");
+  $("statStrip").innerHTML = strip;
+
+  $("report").innerHTML = mdRender(md);
+  buildToc(md);
+  decorateCitations(run.sources || []);
+
+  const list = $("srcList");
+  list.innerHTML = "";
+  (run.sources || []).forEach((s) => {
+    const li = document.createElement("li");
+    li.id = "src-" + s.n;
+    const a = document.createElement("a");
+    a.href = s.url; a.target = "_blank"; a.rel = "noopener";
+    a.textContent = s.title || s.url;
+    const div = document.createElement("div");
+    div.className = "u"; div.textContent = s.url;
+    li.append(a, div);
+    list.appendChild(li);
+  });
+  $("sources").style.display = (run.sources || []).length ? "block" : "none";
+  setBusy(false);
+  return true;
+}
+
+function statBlock(num, lbl) {
+  return '<div class="stat"><div class="num">' + num + '</div><div class="lbl">' + lbl + "</div></div>";
+}
+
+function buildToc(md) {
+  const toc = $("toc");
+  toc.innerHTML = "";
+  let n = 0;
+  md.split("\n").forEach((ln) => {
+    const m = ln.match(/^##\s+(?!#)(.*)$/);
+    if (!m) return;
+    n++;
+    const a = document.createElement("a");
+    a.href = "#h2-" + n;
+    a.textContent = m[1].trim().slice(0, 18);
+    toc.appendChild(a);
+  });
+  document.querySelectorAll("#report h2").forEach((h, idx) => { h.id = "h2-" + (idx + 1); });
+}
+
+function decorateCitations(sources) {
+  const byN = {};
+  sources.forEach((s) => { byN[s.n] = s; });
+  document.querySelectorAll("#report sup a").forEach((a) => {
+    const n = parseInt((a.textContent || "").replace(/\D/g, ""), 10);
+    const s = byN[n];
+    if (s) a.title = (s.title || s.url) + "\n" + s.url;
+  });
+}
+
+function fmtDur(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m ? m + " 分 " + s + " 秒" : s + " 秒";
+}
+
+/* ================= 历史（骨架屏 / 空态 / 错误页） ================= */
+async function refreshHistory() {
+  const box = $("hList");
+  box.innerHTML = '<div class="skeleton sk-list-item"></div><div class="skeleton sk-list-item"></div><div class="skeleton sk-list-item"></div>';
+  let runs;
+  try {
+    const r = await fetch("/api/runs");
+    if (!r.ok) throw new Error(String(r.status));
+    runs = await r.json();
+  } catch (e) {
+    box.innerHTML = '<div class="error-page"><p>历史记录加载失败（' + escapeHtml(String(e)) + '）</p>' +
+      '<button type="button" class="btn btn-secondary btn-sm" data-action="reload-history">重新加载</button></div>';
+    return;
+  }
+  if (!runs.length) {
+    box.innerHTML = '<div class="empty">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>' +
+      "<p>还没有任何调研记录——输入你的第一个问题，开始一次可溯源的深度调研吧。</p>" +
+      '<button type="button" class="btn btn-primary btn-sm" data-action="nav" data-target="new">开始第一次调研</button></div>';
+    return;
+  }
+  box.innerHTML = "";
+  runs.slice(0, 12).forEach((x) => {
+    const el = document.createElement("div");
+    el.className = "list-item";
+    el.dataset.action = "load-run";
+    el.dataset.id = x.id;
+    const t = new Date(x.created_at * 1000).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const kind = x.params && x.params.kind === "direct";
+    let badge;
+    if (x.status === "completed") badge = '<span class="tag ' + (kind ? "direct" : "ok") + '">' + (kind ? "直答" : "调研") + "</span>";
+    else if (x.status === "failed") badge = '<span class="tag fail">失败</span>';
+    else badge = '<span class="tag run">进行中</span>';
+    el.innerHTML = badge +
+      '<span class="q">' + escapeHtml(x.question) + "</span>" +
+      '<span class="item-actions">' +
+      '<button type="button" data-action="export-html" data-id="' + x.id + '">HTML</button>' +
+      '<button type="button" data-action="export-docx" data-id="' + x.id + '">DOCX</button>' +
+      '</span><span class="time">' + t + "</span>";
+    box.appendChild(el);
+  });
+}
+
+/* ================= 报告对比 ================= */
+async function openCompare() {
+  const r = await fetch("/api/runs");
+  const runs = await r.json();
+  const cands = runs.filter((x) => x.status === "completed" && x.id !== curRun);
+  if (!cands.length) { toast("暂无其他可对比的完成报告", "warn"); return; }
+  const curQ = $("rRun").textContent.split("· ").slice(1).join("· ");
+  cands.sort((a, b) => (b.question === curQ ? 1 : 0) - (a.question === curQ ? 1 : 0));
+  const box = $("cmpList");
+  box.innerHTML = "";
+  cands.slice(0, 15).forEach((x) => {
+    const el = document.createElement("div");
+    el.className = "cmp-item";
+    el.dataset.action = "compare-pick";
+    el.dataset.id = x.id;
+    const t = new Date(x.created_at * 1000).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    el.innerHTML = '<span class="q">' + escapeHtml(x.question) + '</span><span style="color:var(--text-2);font-size:12px">' + t + "</span>";
+    box.appendChild(el);
+  });
+  openModal("cmpModal");
+}
+
+async function runCompare(otherId) {
+  closeModal("cmpModal");
+  const box = $("compareSection");
+  box.style.display = "block";
+  $("cmpReport").innerHTML = '<div class="skeleton" style="height:16px;margin-bottom:8px"></div><div class="skeleton" style="height:16px;width:80%;margin-bottom:8px"></div><div class="skeleton" style="height:16px;width:60%"></div>';
+  box.scrollIntoView({ behavior: "smooth" });
+  const resp = await fetch("/api/compare", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ run_id_a: curRun, run_id_b: otherId })
+  });
+  if (!resp.ok) {
+    const j = await resp.json().catch(() => ({}));
+    $("cmpReport").innerHTML = '<div class="err-text">对比失败：' + escapeHtml(j.detail || String(resp.status)) + "</div>";
+    return;
+  }
+  const data = await resp.json();
+  $("cmpMeta").textContent = data.a.id + " ⇄ " + data.b.id + (data.cached ? " · 缓存" : "");
+  $("cmpReport").innerHTML = mdRender(data.verdict_md);
+  toast(data.cached ? "对比评审已从缓存读取" : "对比评审完成", "ok");
+}
+
+/* ================= 断点续跑 ================= */
+function resumeRun(runId, fresh) {
+  const url = "/api/researches/" + runId + "/resume" + (fresh ? "?fresh=true" : "");
+  fetch(url, { method: "POST" }).then((r) => {
+    if (r.status === 202) { loadRun(runId); toast(fresh ? "已放弃断点，重新开始研究" : "正在从断点恢复研究", "ok"); }
+    else r.json().then((j) => toast("操作失败: " + (j.detail || r.status), "err"));
+  });
+}
+
+/* ================= Markdown 渲染（与 report_export.py 内嵌实现保持同步） ================= */
+function inline(s) {
+  s = escapeHtml(s);
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  s = s.replace(/\*([^*]+)\*/g, "<i>$1</i>");
+  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s = s.replace(/(^|[\s(])((?:https?:\/\/)[^\s<)]*[A-Za-z0-9_/&%=?#~-])/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  s = s.replace(/\[(\d+)\]/g, '<sup><a href="#src-$1">[$1]</a></sup>');
+  return s;
+}
+
+function mdRender(md) {
+  const lines = md.replace(/\r/g, "").split("\n"), out = [];
+  let i = 0, inCode = false, code = [];
+  while (i < lines.length) {
+    const ln = lines[i];
+    if (/^```/.test(ln)) {
+      if (inCode) { out.push("<pre><code>" + escapeHtml(code.join("\n")) + "</code></pre>"); code = []; }
+      inCode = !inCode; i++; continue;
+    }
+    if (inCode) { code.push(ln); i++; continue; }
+    if (/^\s*$/.test(ln)) { i++; continue; }
+    const h = ln.match(/^(#{1,4})\s+(.*)$/);
+    if (h) { const n = h[1].length; out.push("<h" + n + ">" + inline(h[2]) + "</h" + n + ">"); i++; continue; }
+    if (/^(---|\*\*\*)\s*$/.test(ln)) { out.push("<hr>"); i++; continue; }
+    if (/^\s*>\s?/.test(ln)) {
+      const q = [];
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) { q.push(lines[i].replace(/^\s*>\s?/, "")); i++; }
+      out.push("<blockquote>" + q.map(inline).join("<br>") + "</blockquote>"); continue;
+    }
+    if (/^\s*\|.*\|/.test(ln) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1])) {
+      const head = splitRow(ln), rows = [];
+      i += 2;
+      while (i < lines.length && /^\s*\|.*\|/.test(lines[i])) { rows.push(splitRow(lines[i])); i++; }
+      let t = "<table><tr>" + head.map((c) => "<th>" + inline(c) + "</th>").join("") + "</tr>";
+      rows.forEach((rw) => { t += "<tr>" + rw.map((c) => "<td>" + inline(c) + "</td>").join("") + "</tr>"; });
+      out.push(t + "</table>"); continue;
+    }
+    if (/^\s*[-*+]\s+/.test(ln)) {
+      const ul = [];
+      while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) { ul.push("<li>" + inline(lines[i].replace(/^\s*[-*+]\s+/, "")) + "</li>"); i++; }
+      out.push("<ul>" + ul.join("") + "</ul>"); continue;
+    }
+    if (/^\s*\d+\.\s+/.test(ln)) {
+      const ol = [];
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { ol.push("<li>" + inline(lines[i].replace(/^\s*\d+\.\s+/, "")) + "</li>"); i++; }
+      out.push("<ol>" + ol.join("") + "</ol>"); continue;
+    }
+    const para = [inline(ln)]; i++;
+    while (i < lines.length && !/^\s*$/.test(lines[i]) && !/^(#{1,4}\s|\s*[-*+]\s|\s*\d+\.\s|\s*>|\s*\||```)/.test(lines[i])) {
+      para.push(inline(lines[i])); i++;
+    }
+    out.push("<p>" + para.join("<br>") + "</p>");
+  }
+  return out.join("");
+}
+function splitRow(ln) {
+  return ln.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => c.trim());
+}
+
+function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+
+/* ================= 统一事件委托（M6.5：禁止内联事件） ================= */
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const action = el.dataset.action;
+  const id = el.dataset.id;
+  switch (action) {
+    case "nav": {
+      document.querySelectorAll("nav a").forEach((a) => a.classList.remove("active"));
+      if (el.tagName === "A") el.classList.add("active");
+      const nav = $("mainNav");
+      if (nav.classList.contains("open")) nav.classList.remove("open");
+      break;
+    }
+    case "nav-toggle": $("mainNav").classList.toggle("open"); break;
+    case "example": fillExample(el.dataset.q); break;
+    case "filter": {
+      document.querySelectorAll(".f-chip[data-action='filter']").forEach((c) => c.classList.remove("on"));
+      el.classList.add("on");
+      $("events").dataset.filter = el.dataset.mode;
+      break;
+    }
+    case "llm-toggle": {
+      const on = $("events").classList.toggle("hide-llm");
+      el.textContent = "LLM 明细：" + (on ? "关" : "开");
+      break;
+    }
+    case "load-run": loadRun(id); break;
+    case "reload-history": refreshHistory(); break;
+    case "export-html": e.stopPropagation(); window.open("/api/researches/" + id + "/export"); break;
+    case "export-docx": e.stopPropagation(); location.href = "/api/researches/" + id + "/export.docx"; break;
+    case "export-html-cur": window.open("/api/researches/" + curRun + "/export"); break;
+    case "export-docx-cur": location.href = "/api/researches/" + curRun + "/export.docx"; break;
+    case "copy-md":
+      fetch("/api/researches/" + curRun).then((r) => r.json()).then((run) => {
+        navigator.clipboard.writeText(run.report_md || "").then(() => {
+          el.textContent = "已复制";
+          setTimeout(() => { el.textContent = "复制 Markdown"; }, 1500);
+        });
+      });
+      break;
+    case "compare-open": openCompare(); break;
+    case "compare-pick": runCompare(id); break;
+    case "resume": resumeRun(id, false); break;
+    case "resume-fresh": freshPendingId = id; openModal("freshModal"); break;
+    case "modal-close": closeModal(el.dataset.modal); break;
+    default: break;
+  }
+});
+$("freshConfirmBtn").addEventListener("click", () => {
+  closeModal("freshModal");
+  if (freshPendingId) { resumeRun(freshPendingId, true); freshPendingId = null; }
+});
+
+function loadRun(runId) { setBusy(true); resetRunView(); openStream(runId); }
+
+/* ================= 启动 ================= */
+refreshHistory();
+if (location.hash.length > 1) loadRun(location.hash.slice(1));
+</script>
+</body>
+</html>
