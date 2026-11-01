@@ -37,7 +37,9 @@ EVIDENCE_A = [{"question_id": "q1", "claim": "c", "detail": "d", "source_url": "
 def _settings(tmp_path, **kw) -> Settings:
     kwargs = {
         "llm_provider": "stub", "retriever": "stub", "data_dir": tmp_path / "data",
-        "inline_execution": True, "fetch_pages": False, "checkpointing": False, "mcp_servers": "",
+        "inline_execution": True, "fetch_pages": False, "checkpointing": False,
+        "llm_api_key": "", "tavily_api_key": "", "serper_api_key": "",
+        "api_key": "", "mcp_servers": "",
     }
     kwargs.update(kw)  # kw 可覆盖默认（checkpointing/fetch_pages 等）
     s = Settings(**kwargs)

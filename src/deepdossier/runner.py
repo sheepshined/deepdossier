@@ -160,6 +160,8 @@ def build_deps(
         event_writer=writer,
         trace_file=trace_file,
         owns_http=http is None,
+        owns_provider=provider is None,
+        owns_retriever=retriever is None,
     )
 
 

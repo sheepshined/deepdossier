@@ -24,6 +24,10 @@ def settings(tmp_path) -> Settings:
         fetch_pages=False,
         max_research_rounds=2,
         checkpointing=False,  # 默认关闭；断点续跑测试在 test_checkpoint.py 单独开启
+        llm_api_key="",
+        tavily_api_key="",
+        serper_api_key="",
+        api_key="",
         mcp_servers="",  # 隔离本机 .env 的 MCP 配置，测试不依赖环境
     )
     s.ensure_dirs()

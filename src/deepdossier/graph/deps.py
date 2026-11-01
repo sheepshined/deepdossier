@@ -34,6 +34,9 @@ class ResearchDeps:
     event_writer: EventWriter | None = None
     trace_file: JsonlTrace | None = None
     owns_http: bool = True
+    owns_provider: bool = True
+    owns_retriever: bool = True
+    owns_embedder: bool = True
     extra_sinks: list[SinkFn] = field(default_factory=list)
     # 单 run 级缓存：query → 搜索结果；url → (正文, 错误)
     search_cache: dict = field(default_factory=dict)
@@ -41,12 +44,17 @@ class ResearchDeps:
 
     async def aclose(self) -> None:
         """释放资源；事件写线程先排空落库，保证事件先于终态可读（SSE 依赖此顺序）。"""
-        close_retriever = getattr(self.retriever, "aclose", None)  # MCP 检索器持有会话
-        if close_retriever:
-            import contextlib
+        import contextlib
 
+        if self.owns_retriever:
             with contextlib.suppress(Exception):
-                await close_retriever()
+                await self.retriever.aclose()
+        if self.owns_provider:
+            with contextlib.suppress(Exception):
+                await self.provider.aclose()
+        if self.embedder and self.owns_embedder:
+            with contextlib.suppress(Exception):
+                await self.embedder.aclose()
         if self.event_writer:
             self.event_writer.close()
         if self.trace_file:

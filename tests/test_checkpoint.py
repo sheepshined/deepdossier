@@ -33,6 +33,11 @@ def ckpt_settings(tmp_path) -> Settings:
         inline_execution=True,
         fetch_pages=False,
         checkpointing=True,
+        llm_api_key="",
+        tavily_api_key="",
+        serper_api_key="",
+        api_key="",
+        mcp_servers="",
     )
     s.ensure_dirs()
     return s

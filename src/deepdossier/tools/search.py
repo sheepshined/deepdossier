@@ -7,6 +7,7 @@ Bing（免 key，国际网络）、Tavily / Serper 可选；StubRetriever 供离
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from abc import ABC, abstractmethod
 
@@ -29,6 +30,9 @@ class BaseRetriever(ABC):
     @abstractmethod
     async def search(self, query: str, k: int = 5) -> list[SearchResult]:
         """返回前 k 条结果；失败抛异常由调用方决定降级策略。"""
+
+    async def aclose(self) -> None:  # noqa: B027 — 默认无持久资源需要释放
+        return None
 
 
 class DuckDuckGoRetriever(BaseRetriever):
@@ -223,6 +227,17 @@ class StubRetriever(BaseRetriever):
         ][:k]
 
 
+async def _aclose_retrievers(retrievers: list[BaseRetriever]) -> None:
+    """逐个释放检索器资源，避免同一对象被包装层重复关闭。"""
+    seen: set[int] = set()
+    for retriever in retrievers:
+        if id(retriever) in seen:
+            continue
+        seen.add(id(retriever))
+        with contextlib.suppress(Exception):
+            await retriever.aclose()
+
+
 class FallbackRetriever(BaseRetriever):
     """主检索器异常或零结果时依次降级到备选引擎（网络环境差异的兜底）。
 
@@ -251,6 +266,9 @@ class FallbackRetriever(BaseRetriever):
         if last_err is not None:
             raise last_err
         return []
+
+    async def aclose(self) -> None:
+        await _aclose_retrievers([self.primary, *self.fallbacks])
 
 
 class HybridRetriever(BaseRetriever):
@@ -298,6 +316,9 @@ class HybridRetriever(BaseRetriever):
                         seen.add(r.url)
                     merged.append(r)
         return merged[: k * 2]
+
+    async def aclose(self) -> None:
+        await _aclose_retrievers([self.chain, *[r for r, _ in self.conditional]])
 
 
 def _build_single(kind: str, settings) -> BaseRetriever:

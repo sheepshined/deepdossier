@@ -81,6 +81,9 @@ class BaseLLMProvider(ABC):
     def usage(self) -> dict[str, int]:
         """{calls, prompt_tokens, completion_tokens}"""
 
+    async def aclose(self) -> None:  # noqa: B027 — 默认无底层资源需要释放
+        return None
+
 
 class OpenAICompatProvider(BaseLLMProvider):
     def __init__(
